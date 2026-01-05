@@ -1,9 +1,10 @@
 package main
 
 import (
-    "fmt"
-    "log"
-    "groupie-tracker/services"
+	"log"
+
+	"groupie-tracker/services"
+	"groupie-tracker/ui"
 )
 
 func main() {
@@ -12,11 +13,5 @@ func main() {
 		log.Fatal(err)
 	}
 
-	for _, d := range data {
-		fmt.Println(d.Artist.Name)
-		fmt.Println("Locations:", d.Location.Locations)
-		fmt.Println("Dates:", d.Date.Dates)
-		fmt.Println("Relations:", d.Relation.DatesLocations)
-		fmt.Println("------")
-	}
+	ui.StartApp(data)
 }
