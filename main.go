@@ -1,14 +1,22 @@
 package main
 
 import (
-    "fyne.io/fyne/v2/app"
-    "fyne.io/fyne/v2/widget"
+    "fmt"
+    "log"
+    "groupie-tracker/services"
 )
 
 func main() {
-    a := app.New()
-    w := a.NewWindow("Test Fyne")
+	data, err := services.GetAllArtistData()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    w.SetContent(widget.NewLabel("Fyne fonctionne !"))
-    w.ShowAndRun()
+	for _, d := range data {
+		fmt.Println(d.Artist.Name)
+		fmt.Println("Locations:", d.Location.Locations)
+		fmt.Println("Dates:", d.Date.Dates)
+		fmt.Println("Relations:", d.Relation.DatesLocations)
+		fmt.Println("------")
+	}
 }
