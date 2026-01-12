@@ -1,8 +1,8 @@
 package models
 
-type ArtistData struct {
-	Artist   Artist
-	Location Location
-	Date     Date
-	Relation Relation
+type ArtistAggregate struct {
+	Artist    Artist
+	Locations Location
+	Dates     ConcertDate
+	Relation  Relation
 }

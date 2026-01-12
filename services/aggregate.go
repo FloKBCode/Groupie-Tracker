@@ -1,41 +1,28 @@
 package services
 
-import (
-	"groupie-tracker/models"
-)
+import "groupie-tracker/models"
 
-// GetAllArtistData récupère toutes les données regroupées par artiste
-func GetAllArtistData() ([]models.ArtistData, error) {
-	artists, err := GetArtists()
+func AggregateArtist(artist models.Artist) (models.ArtistAggregate, error) {
+
+	locations, err := GetLocation(artist.ID)
 	if err != nil {
-		return nil, err
+		return models.ArtistAggregate{}, err
 	}
 
-	var result []models.ArtistData
-
-	for _, artist := range artists {
-		location, err := GetLocations(artist.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		date, err := GetDates(artist.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		relation, err := GetRelation(artist.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		result = append(result, models.ArtistData{
-			Artist:   artist,
-			Location: location,
-			Date:     date,
-			Relation: relation,
-		})
+	dates, err := GetDate(artist.ID)
+	if err != nil {
+		return models.ArtistAggregate{}, err
 	}
 
-	return result, nil
+	relation, err := GetRelation(artist.ID)
+	if err != nil {
+		return models.ArtistAggregate{}, err
+	}
+
+	return models.ArtistAggregate{
+		Artist:    artist,
+		Locations: locations,
+		Dates:     dates,
+		Relation:  relation,
+	}, nil
 }
