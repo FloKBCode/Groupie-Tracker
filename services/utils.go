@@ -13,12 +13,21 @@ func ParseDate(s string) (time.Time, error) {
 
 // ParseLocation sépare une location de type "city-country" en ville et pays
 func ParseLocation(s string) (city, country string) {
-    parts := strings.Split(s, "-")
-    city = strings.ReplaceAll(parts[0], "_", " ")
-    if len(parts) > 1 {
-        country = strings.ReplaceAll(parts[1], "_", " ")
-    } else {
-        country = ""
-    }
-    return
+	if s == "" {
+		return "", ""
+	}
+
+	parts := strings.Split(s, "-")
+	if len(parts) < 2 {
+		return "", ""
+	}
+
+	city = strings.ReplaceAll(parts[0], "_", " ")
+	country = strings.ReplaceAll(parts[1], "_", " ")
+
+	city = strings.TrimSpace(city)
+	country = strings.TrimSpace(country)
+
+	return city, country
 }
+
