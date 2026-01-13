@@ -5,16 +5,17 @@ import (
 	"fyne.io/fyne/v2/app"
 )
 
-// App contient les éléments racine de l'application
 type App struct {
 	FyneApp fyne.App
 	Window  fyne.Window
 	
 	// Navigation
 	currentView fyne.CanvasObject
+	
+	// Référence à la vue liste pour le cleanup
+	listView *ArtistListView
 }
 
-// NewApp initialise l'application et la fenêtre principale
 func NewApp() *App {
 	a := app.New()
 	w := a.NewWindow("Groupie Tracker")
@@ -27,29 +28,42 @@ func NewApp() *App {
 		Window:  w,
 	}
 
+	// Hook de fermeture pour nettoyer les ressources
+	w.SetOnClosed(func() {
+		if appInstance.listView != nil {
+			appInstance.listView.Cleanup()
+		}
+		// Fermer aussi le panneau de filtres s'il est ouvert
+		if appInstance.listView != nil && appInstance.listView.filtersPanel != nil {
+			appInstance.listView.filtersPanel.Hide()
+		}
+		a.Quit()
+	})
+
 	// Afficher la vue liste au démarrage
 	appInstance.ShowArtistList()
 
 	return appInstance
 }
 
-// ShowArtistList affiche la vue liste des artistes
 func (a *App) ShowArtistList() {
-	// Passer les callbacks de navigation
-	listView := NewArtistListViewWithNavigation(a.ShowArtistDetails)
-	a.currentView = listView.Container
+	// Nettoyer l'ancienne vue si elle existe
+	if a.listView != nil {
+		a.listView.Cleanup()
+	}
+	
+	// Créer la nouvelle vue
+	a.listView = NewArtistListViewWithNavigation(a.ShowArtistDetails)
+	a.currentView = a.listView.Container
 	a.Window.SetContent(a.currentView)
 }
 
-// ShowArtistDetails affiche les détails d'un artiste
 func (a *App) ShowArtistDetails(artistID int) {
-	// Passer le callback de retour
 	detailsView := NewArtistDetailsViewWithNavigation(artistID, a.ShowArtistList)
 	a.currentView = detailsView.Container
 	a.Window.SetContent(a.currentView)
 }
 
-// Run lance l'application
 func (a *App) Run() {
 	a.Window.ShowAndRun()
 }

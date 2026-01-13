@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"groupie-tracker/models"
 	"groupie-tracker/services"
@@ -10,29 +11,34 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// ArtistListView - Version améliorée avec recherche et filtres
 type ArtistListView struct {
 	Container      fyne.CanvasObject
-	allArtists     []models.Artist      
-	filteredArtists []models.Artist     
+	allArtists     []models.Artist
+	filteredArtists []models.Artist
 	onSelectArtist func(int)
-	
+
 	// Moteurs de recherche et filtrage
 	searchEngine *services.SearchEngine
 	filterEngine *services.FilterEngine
-	
+
 	// Widgets
-	list      *widget.List
-	searchBar *SearchBar
-	statusLabel *widget.Label
+	list         *widget.List
+	searchBar    *SearchBar
+	statusLabel  *widget.Label
 	filtersPanel *FiltersPanel
+	
+	// Context pour annuler les goroutines
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
-// NewArtistListView crée la vue liste avec recherche et filtres
 func NewArtistListViewWithNavigation(onSelectArtist func(int)) *ArtistListView {
 	view := &ArtistListView{
 		onSelectArtist: onSelectArtist,
 	}
+
+	// Créer un context avec cancel
+	view.ctx, view.cancel = context.WithCancel(context.Background())
 
 	// Chargement des artistes
 	artists, err := services.GetArtists()
@@ -42,22 +48,20 @@ func NewArtistListViewWithNavigation(onSelectArtist func(int)) *ArtistListView {
 		)
 		return view
 	}
-	
+
 	view.allArtists = artists
-	view.filteredArtists = artists // Au départ, tous les artistes sont affichés
+	view.filteredArtists = artists
 
 	// Initialiser les moteurs
 	view.searchEngine = services.NewSearchEngine(artists)
 	view.filterEngine = services.NewFilterEngine(artists)
 
-	// Créer le panneau de filtres avec callback
+	// Créer le panneau de filtres amélioré
 	view.filtersPanel = NewFiltersPanel(func(criteria *services.FilterCriteria) {
 		view.applyFilters(criteria)
 	})
 
-
-	// Pré-charger les données agrégées pour la recherche de locations (optionnel)
-	// Tu peux le faire en background ou à la demande
+	// Pré-charger les données agrégées en arrière-plan avec context
 	go view.preloadAggregates()
 
 	// Créer les widgets
@@ -69,19 +73,46 @@ func NewArtistListViewWithNavigation(onSelectArtist func(int)) *ArtistListView {
 // preloadAggregates charge les données agrégées en arrière-plan
 func (v *ArtistListView) preloadAggregates() {
 	for _, artist := range v.allArtists {
-		v.searchEngine.LoadAggregateData(artist.ID)
-		v.filterEngine.LoadAggregateData(artist.ID)
+		// Vérifier si le context est annulé
+		select {
+		case <-v.ctx.Done():
+			fmt.Println("🛑 Préchargement annulé")
+			return
+		default:
+			v.searchEngine.LoadAggregateData(artist.ID)
+			v.filterEngine.LoadAggregateData(artist.ID)
+		}
 	}
-	fmt.Println("✅ Données agrégées chargées pour la recherche")
+	
+	// Une fois chargé, mettre à jour les locations disponibles
+	v.filtersPanel.LoadAvailableLocations(v.filterEngine)
+	
+	fmt.Println("✅ Données agrégées chargées pour la recherche et les filtres")
 }
+
+// Cleanup annule les goroutines en cours
+func (v *ArtistListView) Cleanup() {
+	if v.cancel != nil {
+		v.cancel()
+		fmt.Println("🧹 Nettoyage des goroutines")
+	}
+}
+
+
 
 // buildUI construit l'interface
 func (v *ArtistListView) buildUI() {
-	// Titre
+	// Titre principal
 	title := widget.NewLabelWithStyle(
 		"🎵 Groupie Tracker",
 		fyne.TextAlignCenter,
 		fyne.TextStyle{Bold: true},
+	)
+
+	subtitle := widget.NewLabelWithStyle(
+		"Découvrez vos artistes préférés",
+		fyne.TextAlignCenter,
+		fyne.TextStyle{Italic: true},
 	)
 
 	// Barre de recherche
@@ -103,7 +134,7 @@ func (v *ArtistListView) buildUI() {
 			vbox := obj.(*fyne.Container)
 			nameLabel := vbox.Objects[0].(*widget.Label)
 			infoLabel := vbox.Objects[1].(*widget.Label)
-			
+
 			nameLabel.SetText(artist.Name)
 			infoLabel.SetText(fmt.Sprintf(
 				"👥 %d membres | 📅 %d | 💿 %s",
@@ -128,9 +159,9 @@ func (v *ArtistListView) buildUI() {
 	v.statusLabel = widget.NewLabel(fmt.Sprintf("Affichage de %d artistes", len(v.filteredArtists)))
 	v.statusLabel.Alignment = fyne.TextAlignCenter
 
-	// Bouton pour ouvrir le panneau de filtres (à implémenter)
-	filterButton := widget.NewButton("🔧 Filtres", func() {
-		v.showFiltersDialog()
+	// Bouton pour ouvrir les filtres (fenêtre séparée)
+	filterButton := widget.NewButton("🔧 Ouvrir les Filtres", func() {
+		v.showFiltersWindow()
 	})
 
 	// Bouton reset
@@ -138,42 +169,54 @@ func (v *ArtistListView) buildUI() {
 		v.resetFilters()
 	})
 
-	// Toolbar
+	// Bouton info
+	infoButton := widget.NewButton("ℹ️ Aide", func() {
+		v.showHelpDialog()
+	})
+
+	// Toolbar avec tous les boutons
 	toolbar := container.NewHBox(
 		filterButton,
 		resetButton,
+		infoButton,
 	)
 
-	// Assemblage
+	// Assemblage final
 	content := container.NewBorder(
+		// Top: Titre + Recherche + Toolbar
 		container.NewVBox(
 			title,
+			subtitle,
 			widget.NewSeparator(),
 			v.searchBar.Container,
+			widget.NewSeparator(),
 			toolbar,
 			widget.NewSeparator(),
 		),
+		// Bottom: Status
 		v.statusLabel,
+		// Left/Right: nil
 		nil,
 		nil,
+		// Center: Liste
 		v.list,
 	)
 
 	v.Container = content
 }
 
-// showFiltersDialog affiche une popup avec les options de filtrage
-func (v *ArtistListView) showFiltersDialog() {
+// showFiltersWindow affiche la fenêtre de filtres (déplaçable)
+func (v *ArtistListView) showFiltersWindow() {
 	if v.filtersPanel == nil {
-		return
+		v.filtersPanel = NewFiltersPanel(func(criteria *services.FilterCriteria) {
+			v.applyFilters(criteria)
+		})
+		// Charger les locations une fois créé
+		v.filtersPanel.LoadAvailableLocations(v.filterEngine)
 	}
-
-	// Affiche le panel dans une popup
-	w := fyne.CurrentApp().Driver().AllWindows()[0]
-	dialog := widget.NewModalPopUp(v.filtersPanel.Container, w.Canvas())
-	dialog.Show()
+	v.filtersPanel.Show()
+	fmt.Println("🔧 Fenêtre de filtres ouverte")
 }
-
 
 // applyFilters applique les critères de filtrage
 func (v *ArtistListView) applyFilters(criteria *services.FilterCriteria) {
@@ -193,7 +236,54 @@ func (v *ArtistListView) resetFilters() {
 	v.list.Refresh()
 	v.statusLabel.SetText(fmt.Sprintf("Affichage de %d artistes", len(v.filteredArtists)))
 	v.searchBar.Clear()
-	fmt.Println("🔄 Filtres réinitialisés")
+
+	// Réinitialiser aussi le panneau de filtres
+	if v.filtersPanel != nil {
+		v.filtersPanel.resetFilters()
+	}
+
+	fmt.Println("🔄 Tous les filtres réinitialisés")
 }
 
+// showHelpDialog affiche une boîte de dialogue d'aide
+func (v *ArtistListView) showHelpDialog() {
+	helpText := `🎵 Guide d'utilisation
 
+🔍 RECHERCHE
+• Tapez dans la barre de recherche
+• Suggestions automatiques
+• Recherche par artiste, membre, lieu ou date
+
+🔧 FILTRES
+• Cliquez sur "Ouvrir les Filtres"
+• Activez les filtres souhaités
+• Ajustez les valeurs avec les sliders
+• Cliquez sur "Appliquer"
+
+📋 NAVIGATION
+• Cliquez sur un artiste pour voir les détails
+• Utilisez "Retour" pour revenir à la liste
+
+🔄 RÉINITIALISER
+• Annule tous les filtres et recherches`
+
+	dialog := widget.NewPopUp(
+		container.NewVBox(
+			widget.NewLabelWithStyle(
+				"ℹ️ Aide",
+				fyne.TextAlignCenter,
+				fyne.TextStyle{Bold: true},
+			),
+			widget.NewSeparator(),
+			widget.NewLabel(helpText),
+			widget.NewSeparator(),
+			widget.NewButton("OK", func() {
+				// Le dialog se fermera automatiquement
+			}),
+		),
+		fyne.CurrentApp().Driver().AllWindows()[0].Canvas(),
+	)
+
+	dialog.Resize(fyne.NewSize(400, 400))
+	dialog.Show()
+}
