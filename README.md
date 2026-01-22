@@ -5,7 +5,6 @@
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![Go](https://img.shields.io/badge/Go-1.23-00ADD8?logo=go)
 ![Fyne](https://img.shields.io/badge/Fyne-v2-00ADD8)
-![License](https://img.shields.io/badge/license-MIT-green)
 
 ---
 
@@ -17,7 +16,7 @@
 - [Utilisation](#-utilisation)
 - [Architecture](#-architecture)
 - [API](#-api)
-- - [Difficultés techniques rencontrées](#difficultes-techniques)
+- [Difficultés techniques rencontrées](#difficultes-techniques)
 
 
 ---
@@ -139,7 +138,7 @@ go build -o groupie-tracker
 4. **Favoris** : Cliquez sur ⭐ pour ajouter/retirer des favoris
 5. **Détails** : Cliquez sur un artiste pour voir toutes ses informations
 
-### Vue Carte (Améliorée ✅)
+### Vue Carte
 
 1. Cliquez sur "🗺️ Carte"
 2. **Sélection d'artiste en grille** : Visualisation de plusieurs artistes simultanément (au lieu d'une liste scrollable)
@@ -266,9 +265,7 @@ for dy := -radius; dy <= radius; dy++ {
 
 ---
 
-### 📦 **Problèmes avec les Documents (DOCX/PPTX/XLSX)**
 
-**Problème** : Création de fichiers Office complexes avec Go.
 
 #### Difficultés Rencontrées
 
@@ -571,13 +568,12 @@ mv.mapContainer.Refresh()  // Crucial !
 | Problème | Temps Débogage | Solution |
 |----------|----------------|----------|
 | Widget Map Fyne | ~6h | Implémentation custom avec tuiles OSM |
-| Documents Office | ~10h | Création de skills + abstraction |
 | Géolocalisation | ~4h | Cache + workers avec rate limiting |
 | UI Fyne (boutons, centrage) | ~3h | Padding + containers spécifiques |
 | Thème personnalisé | ~2h | Implémentation complète de fyne.Theme |
 | Performance | ~3h | Lazy loading + préchargement async |
 | Thread safety | ~2h | Mutexes + tests -race |
-| **TOTAL** | **~30h** | Application fonctionnelle et optimisée |
+| **TOTAL** | **~20h** | Application fonctionnelle et optimisée |
 
 ---
 
@@ -604,7 +600,7 @@ mv.mapContainer.Refresh()  // Crucial !
 
 ## 👨‍💻 Auteur
 
-Développé par Florence Kore-Belle, Theo Bouaziz, Sasha Domin, Mariam Keita
+Développé par **Florence Kore-Belle, Theo Bouaziz, Sasha Domin, Mariam Keita.**
 
 ---
 
