@@ -36,7 +36,6 @@ func TestSearchEngine_SearchByArtistName(t *testing.T) {
 	artists := createTestArtists()
 	engine := NewSearchEngine(artists)
 
-	// Test recherche case-insensitive
 	results := engine.Search("queen")
 
 	if len(results) == 0 {
@@ -62,7 +61,6 @@ func TestSearchEngine_SearchByMember(t *testing.T) {
 		t.Error("Devrait trouver Freddie Mercury")
 	}
 
-	// Vérifier qu'on a trouvé le bon type
 	foundMember := false
 	for _, result := range results {
 		if result.Type == SearchTypeMember {
@@ -82,7 +80,6 @@ func TestSearchEngine_CaseInsensitive(t *testing.T) {
 	artists := createTestArtists()
 	engine := NewSearchEngine(artists)
 
-	// Test différentes casses
 	testCases := []string{"QUEEN", "queen", "QuEeN", "qUeEn"}
 
 	for _, query := range testCases {
@@ -97,7 +94,6 @@ func TestSearchEngine_PartialMatch(t *testing.T) {
 	artists := createTestArtists()
 	engine := NewSearchEngine(artists)
 
-	// Recherche partielle
 	results := engine.Search("beat")
 
 	if len(results) == 0 {
@@ -113,6 +109,49 @@ func TestSearchEngine_EmptyQuery(t *testing.T) {
 
 	if len(results) != 0 {
 		t.Error("Une query vide devrait retourner 0 résultats")
+	}
+}
+
+func TestSearchEngine_ScoreCalculation(t *testing.T) {
+	artists := []models.Artist{
+		{ID: 1, Name: "Queen"},
+		{ID: 2, Name: "Queen of the Stone Age"},
+		{ID: 3, Name: "The Queen"},
+	}
+	engine := NewSearchEngine(artists)
+
+	results := engine.Search("queen")
+
+	// "Queen" devrait avoir le meilleur score (match exact)
+	if len(results) > 0 {
+		topResult := results[0]
+		if topResult.ArtistID != 1 {
+			t.Errorf("Match exact 'Queen' devrait être premier, got ID %d", topResult.ArtistID)
+		}
+		
+		// Vérifier que le score est élevé
+		if topResult.Score < 1000 {
+			t.Errorf("Score pour match exact devrait être > 1000, got %d", topResult.Score)
+		}
+	}
+}
+
+func TestSearchEngine_SortByScore(t *testing.T) {
+	artists := []models.Artist{
+		{ID: 1, Name: "The Queen"},          // Match au milieu
+		{ID: 2, Name: "Queen"},              // Match exact
+		{ID: 3, Name: "Queen of Hearts"},    // Match au début
+	}
+	engine := NewSearchEngine(artists)
+
+	results := engine.Search("queen")
+
+	// Vérifier que les résultats sont triés par score
+	for i := 0; i < len(results)-1; i++ {
+		if results[i].Score < results[i+1].Score {
+			t.Errorf("Résultats mal triés: result[%d].Score=%d < result[%d].Score=%d",
+				i, results[i].Score, i+1, results[i+1].Score)
+		}
 	}
 }
 
@@ -147,6 +186,71 @@ func TestSearchEngine_SearchByType(t *testing.T) {
 	}
 }
 
+func TestSearchEngine_GetTopSuggestion(t *testing.T) {
+	artists := createTestArtists()
+	engine := NewSearchEngine(artists)
+
+	top := engine.GetTopSuggestion("queen")
+
+	if top == nil {
+		t.Error("Devrait retourner une suggestion")
+	}
+
+	if top != nil && top.ArtistID != 1 {
+		t.Errorf("Top suggestion pour 'queen' devrait être Queen (ID=1), got %d", top.ArtistID)
+	}
+}
+
+func TestSearchEngine_SearchWithMinScore(t *testing.T) {
+	artists := createTestArtists()
+	engine := NewSearchEngine(artists)
+
+	// Chercher avec un score minimum élevé
+	results := engine.SearchWithMinScore("que", 500)
+
+	// Avec un score min de 500, on devrait avoir moins de résultats
+	allResults := engine.Search("que")
+
+	if len(results) > len(allResults) {
+		t.Error("SearchWithMinScore devrait retourner moins ou autant de résultats")
+	}
+
+	// Vérifier que tous les résultats ont un score >= 500
+	for _, result := range results {
+		if result.Score < 500 {
+			t.Errorf("Résultat avec score %d < 500 ne devrait pas être retourné", result.Score)
+		}
+	}
+}
+
+func TestSearchEngine_HighlightMatch(t *testing.T) {
+	artists := []models.Artist{
+		{ID: 1, Name: "Queen"},
+	}
+	engine := NewSearchEngine(artists)
+
+	results := engine.Search("uee")
+
+	if len(results) == 0 {
+		t.Skip("Pas de résultats pour tester highlight")
+	}
+
+	before, match, after := engine.HighlightMatch(results[0])
+
+	// "Queen" -> "Q" + "uee" + "n"
+	if before != "Q" {
+		t.Errorf("Before devrait être 'Q', got '%s'", before)
+	}
+
+	if match != "uee" {
+		t.Errorf("Match devrait être 'uee', got '%s'", match)
+	}
+
+	if after != "n" {
+		t.Errorf("After devrait être 'n', got '%s'", after)
+	}
+}
+
 func TestSearchEngine_NoDuplicates(t *testing.T) {
 	artists := createTestArtists()
 	engine := NewSearchEngine(artists)
@@ -164,7 +268,32 @@ func TestSearchEngine_NoDuplicates(t *testing.T) {
 	}
 }
 
-// Benchmark pour tester les performances
+func TestSearchEngine_MatchPositions(t *testing.T) {
+	artists := []models.Artist{
+		{ID: 1, Name: "Queen"},
+	}
+	engine := NewSearchEngine(artists)
+
+	results := engine.Search("queen")
+
+	if len(results) == 0 {
+		t.Skip("Pas de résultats")
+	}
+
+	result := results[0]
+
+	// Pour "queen" dans "Queen", match devrait commencer à 0
+	if result.MatchStart != 0 {
+		t.Errorf("MatchStart devrait être 0, got %d", result.MatchStart)
+	}
+
+	// Et finir à 5 (longueur de "queen")
+	if result.MatchEnd != 5 {
+		t.Errorf("MatchEnd devrait être 5, got %d", result.MatchEnd)
+	}
+}
+
+// Benchmarks
 func BenchmarkSearchEngine_Search(b *testing.B) {
 	artists := createTestArtists()
 	engine := NewSearchEngine(artists)
@@ -182,5 +311,14 @@ func BenchmarkSearchEngine_GetSuggestions(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		engine.GetSuggestions("roger", 10)
+	}
+}
+
+func BenchmarkSearchEngine_CalculateScore(b *testing.B) {
+	engine := NewSearchEngine([]models.Artist{})
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		engine.calculateScore("Queen", "queen", 0, SearchTypeArtist)
 	}
 }

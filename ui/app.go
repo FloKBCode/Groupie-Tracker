@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"groupie-tracker/services"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 )
@@ -12,20 +14,30 @@ type App struct {
 	// Navigation
 	currentView fyne.CanvasObject
 	
+	// Managers
+	favoritesManager *services.FavoritesManager
+	imageCache       *services.ImageCache
+	
 	// Référence à la vue liste pour le cleanup
 	listView *ArtistListView
 }
 
 func NewApp() *App {
 	a := app.New()
+	
+	// Appliquer le thème violet foncé
+	a.Settings().SetTheme(&DarkPurpleTheme{})
+	
 	w := a.NewWindow("Groupie Tracker")
 
 	w.Resize(fyne.NewSize(1200, 700))
 	w.CenterOnScreen()
 
 	appInstance := &App{
-		FyneApp: a,
-		Window:  w,
+		FyneApp:          a,
+		Window:           w,
+		favoritesManager: services.NewFavoritesManager(),
+		imageCache:       services.NewImageCache(),
 	}
 
 	// Hook de fermeture pour nettoyer les ressources
@@ -40,8 +52,12 @@ func NewApp() *App {
 		a.Quit()
 	})
 
-	// Afficher la vue liste au démarrage
-	appInstance.ShowArtistList()
+	// Afficher l'écran d'accueil avec bouton
+	splash := NewSplashScreen(func() {
+		// Quand l'utilisateur clique sur "Ouvrir"
+		appInstance.ShowArtistList()
+	})
+	w.SetContent(splash.Container)
 
 	return appInstance
 }
@@ -53,14 +69,30 @@ func (a *App) ShowArtistList() {
 	}
 	
 	// Créer la nouvelle vue
-	a.listView = NewArtistListViewWithNavigation(a.ShowArtistDetails)
+	a.listView = NewArtistListView(a.ShowArtistDetails, a.favoritesManager, a.imageCache, a.ShowFavorites)
 	a.currentView = a.listView.Container
 	a.Window.SetContent(a.currentView)
 }
 
 func (a *App) ShowArtistDetails(artistID int) {
-	detailsView := NewArtistDetailsViewWithNavigation(artistID, a.ShowArtistList)
+	detailsView := NewArtistDetailsView(artistID, a.ShowArtistList, a.favoritesManager)
 	a.currentView = detailsView.Container
+	a.Window.SetContent(a.currentView)
+}
+
+func (a *App) ShowFavorites() {
+	if a.listView == nil {
+		return
+	}
+	
+	favView := NewFavoritesView(
+		a.listView.allArtists,
+		a.favoritesManager,
+		a.imageCache,
+		a.ShowArtistDetails,
+		a.ShowArtistList,
+	)
+	a.currentView = favView.Container
 	a.Window.SetContent(a.currentView)
 }
 

@@ -31,3 +31,31 @@ func ParseLocation(s string) (city, country string) {
 	return city, country
 }
 
+
+// FormatDate convertit une date du format "DD-MM-YYYY" ou "*DD-MM-YYYY" au format "JJ/MM/AAAA"
+func FormatDate(dateStr string) string {
+	if dateStr == "" {
+		return ""
+	}
+	
+	// Retirer l'éventuel astérisque
+	dateStr = strings.TrimPrefix(dateStr, "*")
+	
+	// Parser la date
+	t, err := ParseDate(dateStr)
+	if err != nil {
+		return dateStr // Retourner tel quel si format invalide
+	}
+	
+	// Reformater en JJ/MM/AAAA
+	return t.Format("02/01/2006")
+}
+
+// FormatDateList formate une liste de dates
+func FormatDateList(dates []string) []string {
+	formatted := make([]string, len(dates))
+	for i, date := range dates {
+		formatted[i] = FormatDate(date)
+	}
+	return formatted
+}
