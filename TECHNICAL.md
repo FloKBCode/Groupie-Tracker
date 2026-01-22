@@ -250,7 +250,7 @@ func (v *ArtistListView) switchView(mode ViewMode)
 - **Galerie** : `container.NewGridWrap` avec cards
 - **Carte** : Grille de sélection → MapView
 
-#### 3. **Map View** (`map_view.go`) ✅ **CORRIGÉ**
+#### 3. **Map View** (`map_view.go`) 
 
 Vue carte interactive.
 
@@ -272,7 +272,7 @@ func (mv *MapView) adjustZoom(centerLat, centerLon float64)
 - ✅ Calcul du centre moyen
 - ✅ Boutons "Centrer" fonctionnels
 
-#### 4. **Artist Details View** (`artist_details.go`) ✅ **OPTIMISÉ**
+#### 4. **Artist Details View** (`artist_details.go`) 
 
 Vue détaillée d'un artiste.
 
@@ -290,9 +290,9 @@ type ArtistDetailsView struct {
 - Spotify integration
 - Infos générales (Card)
 - Membres (Card)
-- Lieux (Grille 4 colonnes) ✅
-- Dates (Liste spacieuse) ✅
-- Programme détaillé (Cards par lieu) ✅
+- Lieux (Grille 4 colonnes) 
+- Dates (Liste spacieuse) 
+- Programme détaillé (Cards par lieu) 
 
 ---
 
